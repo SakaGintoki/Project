@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME     = "${JOB_NAME}"
+        IMAGE_NAME     = "${JOB_NAME.split('/').last()}"
         IMAGE_TAG      = "${BUILD_NUMBER}"
         IMAGE_PREV_TAG = "${BUILD_NUMBER.toInteger() - 1}"
         CONTAINER_NAME = "${JOB_NAME}-app"
