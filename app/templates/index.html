@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="mb-12 text-center">
+    <h1 class="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+        Decide <span class="gradient-text">together</span>, faster.
+    </h1>
+    <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+        Create beautiful polls and get real-time feedback from your community.
+    </p>
+</div>
+
+{% if not votings %}
+<div class="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+    <div class="flex flex-col items-center">
+        <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <p class="text-gray-500 text-lg font-medium">No polls found. Be the first to create one!</p>
+        <a href="{{ url_for('voting.new_voting_page') }}" class="mt-4 btn-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg">Create First Poll</a>
+    </div>
+</div>
+{% else %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    {% for voting in votings %}
+    <a href="{{ url_for('voting.voting_detail', voting_id=voting.id) }}" class="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col">
+        <div class="relative h-48 overflow-hidden bg-gray-100">
+            {% if voting.image_url %}
+                <img src="{{ voting.image_url }}" alt="{{ voting.title }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+            {% else %}
+                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+                    <span class="text-indigo-200 text-4xl font-bold">{{ voting.title[:1] }}</span>
+                </div>
+            {% endif %}
+            <div class="absolute top-4 left-4">
+                <span class="px-3 py-1 text-xs font-semibold tracking-wider text-indigo-700 bg-indigo-100 rounded-full uppercase">{{ voting.category }}</span>
+            </div>
+        </div>
+        <div class="p-6 flex-grow">
+            <h3 class="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">{{ voting.title }}</h3>
+            <p class="text-gray-500 text-sm line-clamp-2">{{ voting.description }}</p>
+        </div>
+        <div class="p-6 pt-0 flex justify-between items-center border-t border-gray-50 bg-gray-50/50">
+            <span class="text-xs font-medium text-gray-400 uppercase tracking-tighter">{{ voting.options|length }} options</span>
+            <div class="flex items-center text-sm font-semibold text-gray-900">
+                <svg class="w-4 h-4 mr-1 text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
+                </svg>
+                {{ voting.options|sum(attribute='vote_count') }} votes
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

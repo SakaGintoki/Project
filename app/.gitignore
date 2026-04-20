@@ -1,0 +1,21 @@
+# Dependencies
+**/node_modules/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Database
+app/voting.db
+
+# Frontend Build
+app/frontend/dist/
+app/static/
+
+# OS & IDE
+.DS_Store
+.vscode/
+.idea/
+*.bak
+*.swp

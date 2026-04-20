@@ -25,13 +25,13 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ./app"
             }
         }
 
         stage('Test') {
             steps {
-                sh "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} python -m pytest tests/ -v"
+                sh "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} python -m pytest /app/tests/ -v"
             }
         }
 
