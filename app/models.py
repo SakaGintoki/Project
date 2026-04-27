@@ -35,6 +35,7 @@ class Voting(db.Model):
     user_id = db.Column(db.String(32), db.ForeignKey('user.id'), nullable=True)
     options = db.relationship('Option', backref='voting', lazy=True, cascade="all, delete-orphan")
     votes = db.relationship('Vote', backref='voting', lazy=True, cascade="all, delete-orphan")
+    comments = db.relationship('Comment', backref='voting', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -86,3 +87,56 @@ class Vote(db.Model):
             'created_at': self.created_at.isoformat()
         }
 
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    voting_id = db.Column(db.String(32), db.ForeignKey('voting.id'), nullable=False)
+    user_id = db.Column(db.String(32), db.ForeignKey('user.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship('User', backref='comments', lazy=True)
+    replies = db.relationship(
+        'Comment',
+        backref=db.backref('parent', remote_side=[id]),
+        lazy=True,
+        cascade="all, delete-orphan",
+        single_parent=True,
+    )
+    likes = db.relationship('CommentLike', backref='comment', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self, current_user_id=None, poll_owner_id=None):
+        can_delete = current_user_id is not None and (
+            current_user_id == self.user_id or current_user_id == poll_owner_id
+        )
+        liked_by_current_user = False
+        if current_user_id:
+            liked_by_current_user = any(like.user_id == current_user_id for like in self.likes)
+        return {
+            'id': self.id,
+            'voting_id': self.voting_id,
+            'user_id': self.user_id,
+            'parent_id': self.parent_id,
+            'author': self.author.full_name if self.author else 'Deleted User',
+            'content': self.content,
+            'created_at': self.created_at.isoformat(),
+            'like_count': len(self.likes),
+            'liked_by_current_user': liked_by_current_user,
+            'can_delete': can_delete,
+            'is_owner': current_user_id == self.user_id if current_user_id else False,
+            'replies': [],
+        }
+
+
+class CommentLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=False)
+    user_id = db.Column(db.String(32), db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='comment_likes', lazy=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('comment_id', 'user_id', name='uq_comment_like_user'),
+    )

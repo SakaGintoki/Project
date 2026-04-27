@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, url_for
 from werkzeug.utils import secure_filename
 from database import db
-from models import Voting, Option, Vote
+from models import Voting, Option, Vote, Comment, CommentLike
 from routes.auth_routes import login_required
 
 import jwt
@@ -29,6 +29,35 @@ def get_current_user_optional():
         return User.query.get(payload['user_id'])
     except Exception:
         return None
+
+
+def can_access_voting(voting, user):
+    if voting.visibility == 'public':
+        return True
+    return user is not None and voting.user_id == user.id
+
+
+def sort_comments(comments, sort_by='oldest'):
+    if sort_by == 'newest':
+        return sorted(comments, key=lambda comment: comment.created_at, reverse=True)
+    if sort_by == 'best':
+        return sorted(
+            comments,
+            key=lambda comment: (len(comment.likes), comment.created_at),
+            reverse=True,
+        )
+    return sorted(comments, key=lambda comment: comment.created_at)
+
+
+def serialize_comment_tree(comment, children_by_parent, current_user_id, poll_owner_id):
+    data = comment.to_dict(current_user_id=current_user_id, poll_owner_id=poll_owner_id)
+    replies = sort_comments(children_by_parent.get(comment.id, []), 'oldest')
+    data['replies'] = [
+        serialize_comment_tree(reply, children_by_parent, current_user_id, poll_owner_id)
+        for reply in replies
+    ]
+    data['reply_count'] = len(data['replies'])
+    return data
 
 
 @voting_bp.route('/upload', methods=['POST'])
@@ -204,6 +233,132 @@ def delete_voting(voting_id):
     db.session.delete(voting)
     db.session.commit()
     return jsonify({'message': 'Poll deleted successfully.'}), 200
+
+
+@voting_bp.route('/votings/<voting_id>/comments', methods=['GET'])
+def get_comments(voting_id):
+    voting = Voting.query.get_or_404(voting_id)
+    user = get_current_user_optional()
+
+    if not can_access_voting(voting, user):
+        return jsonify({'error': 'You do not have permission to view comments for this poll.'}), 403
+
+    sort_by = request.args.get('sort', 'oldest')
+    if sort_by not in {'oldest', 'newest', 'best'}:
+        sort_by = 'oldest'
+
+    comments = Comment.query.filter_by(voting_id=voting.id).all()
+    children_by_parent = {}
+    root_comments = []
+    for comment in comments:
+        if comment.parent_id:
+            children_by_parent.setdefault(comment.parent_id, []).append(comment)
+        else:
+            root_comments.append(comment)
+
+    current_user_id = user.id if user else None
+    return jsonify([
+        serialize_comment_tree(comment, children_by_parent, current_user_id, voting.user_id)
+        for comment in sort_comments(root_comments, sort_by)
+    ]), 200
+
+
+@voting_bp.route('/votings/<voting_id>/comments', methods=['POST'])
+@login_required
+def create_comment(voting_id):
+    voting = Voting.query.get_or_404(voting_id)
+
+    if not can_access_voting(voting, request.current_user):
+        return jsonify({'error': 'You do not have permission to comment on this poll.'}), 403
+
+    data = request.get_json() or {}
+    content = (data.get('content') or '').strip()
+    parent_id = data.get('parent_id')
+
+    if not content:
+        return jsonify({'error': 'Comment cannot be empty.'}), 400
+    if len(content) > 500:
+        return jsonify({'error': 'Comment cannot exceed 500 characters.'}), 400
+
+    parent_comment = None
+    if parent_id:
+        parent_comment = Comment.query.get(parent_id)
+        if not parent_comment or parent_comment.voting_id != voting.id:
+            return jsonify({'error': 'Parent comment was not found for this poll.'}), 400
+
+    comment = Comment(
+        voting_id=voting.id,
+        user_id=request.current_user.id,
+        parent_id=parent_comment.id if parent_comment else None,
+        content=content,
+    )
+    db.session.add(comment)
+    db.session.commit()
+
+    return jsonify(comment.to_dict(
+        current_user_id=request.current_user.id,
+        poll_owner_id=voting.user_id,
+    )), 201
+
+
+@voting_bp.route('/comments/<int:comment_id>/like', methods=['POST'])
+@login_required
+def like_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+
+    if not can_access_voting(comment.voting, request.current_user):
+        return jsonify({'error': 'You do not have permission to like this comment.'}), 403
+
+    existing_like = CommentLike.query.filter_by(
+        comment_id=comment.id,
+        user_id=request.current_user.id,
+    ).first()
+
+    if not existing_like:
+        db.session.add(CommentLike(comment_id=comment.id, user_id=request.current_user.id))
+        db.session.commit()
+
+    return jsonify(comment.to_dict(
+        current_user_id=request.current_user.id,
+        poll_owner_id=comment.voting.user_id,
+    )), 200
+
+
+@voting_bp.route('/comments/<int:comment_id>/like', methods=['DELETE'])
+@login_required
+def unlike_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+
+    if not can_access_voting(comment.voting, request.current_user):
+        return jsonify({'error': 'You do not have permission to unlike this comment.'}), 403
+
+    existing_like = CommentLike.query.filter_by(
+        comment_id=comment.id,
+        user_id=request.current_user.id,
+    ).first()
+
+    if existing_like:
+        db.session.delete(existing_like)
+        db.session.commit()
+
+    return jsonify(comment.to_dict(
+        current_user_id=request.current_user.id,
+        poll_owner_id=comment.voting.user_id,
+    )), 200
+
+
+@voting_bp.route('/comments/<int:comment_id>', methods=['DELETE'])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+    voting = comment.voting
+
+    if comment.user_id != request.current_user.id and voting.user_id != request.current_user.id:
+        return jsonify({'error': 'You do not have permission to delete this comment.'}), 403
+
+    db.session.delete(comment)
+    db.session.commit()
+    return jsonify({'message': 'Comment deleted successfully.'}), 200
 
 
 @voting_bp.route('/vote', methods=['POST'])

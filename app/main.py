@@ -1,11 +1,11 @@
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from database import db
 from routes.voting_routes import voting_bp
 from routes.auth_routes import auth_bp
 
-def create_app():
+def create_app(config_override=None):
     # Serve React build in production
     static_folder = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
     app = Flask(__name__, static_folder=static_folder, static_url_path='')
@@ -22,6 +22,9 @@ def create_app():
     # Security: Limit max content length for uploads (e.g., 5MB)
     app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 
+    if config_override:
+        app.config.update(config_override)
+
     CORS(app)
 
     db.init_app(app)
@@ -33,6 +36,10 @@ def create_app():
     @app.route('/api/test')
     def api_test():
         return jsonify({"message": "API is reachable", "status": "ok"}), 200
+
+    @app.route('/health')
+    def root_health_check():
+        return jsonify({"status": "healthy"}), 200
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):

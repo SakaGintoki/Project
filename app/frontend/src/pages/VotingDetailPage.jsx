@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import CommentsSection from '../components/CommentsSection';
 import { ChevronLeft, Check, AlertCircle, Users, Trash2, Pencil, Share2, Copy, X, CheckCircle2 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -230,6 +231,8 @@ export default function VotingDetailPage() {
           </div>
         )}
       </form>
+
+      <CommentsSection votingId={voting.id} />
 
     </div>
   );
