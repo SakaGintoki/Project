@@ -1,21 +1,43 @@
-# Dependencies
-**/node_modules/
-**/__pycache__/
+# Python
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
+venv/
+env/
+.env
 
 # Database
-app/voting.db
+*.db
+*.sqlite3
+instance/
 
-# Frontend Build
-app/frontend/dist/
-app/static/
+# Flask
+uploads/
+.flaskenv
+
+# Frontend (Node/Vite)
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.eslintcache
+.stylelintcache
+*.local
+
+# Logs
+*.log
+logs/
 
 # OS & IDE
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 *.bak
 *.swp
+*.temp
+tmp/
