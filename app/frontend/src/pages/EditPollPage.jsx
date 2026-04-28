@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { ChevronLeft, Plus, X, Image as ImageIcon, CheckCircle2, Calendar, LayoutDashboard, ExternalLink, Save, Copy, Check } from 'lucide-react';
+import { ChevronLeft, Plus, X, Image as ImageIcon, CheckCircle2, Calendar, LayoutDashboard, ExternalLink, Save, Copy, Check, RefreshCw } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -16,6 +16,7 @@ export default function EditPollPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Other');
+  const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [isMultipleChoice, setIsMultipleChoice] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(true);
@@ -90,23 +91,24 @@ export default function EditPollPage() {
       return;
     }
 
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('category', category);
+    formData.append('is_multiple_choice', isMultipleChoice);
+    formData.append('is_anonymous', isAnonymous);
+    formData.append('visibility', visibility);
+    if (endDate) formData.append('end_date', endDate);
+    formData.append('options', JSON.stringify(filteredOptions));
+    if (imageFile) formData.append('image', imageFile);
+
     try {
       const res = await fetch(`${API}/api/votings/${id}`, {
         method: 'PUT',
         headers: {
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-            title,
-            description,
-            category,
-            is_multiple_choice: isMultipleChoice,
-            is_anonymous: isAnonymous,
-            visibility,
-            end_date: endDate,
-            options: filteredOptions
-        }),
+        body: formData,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update poll');
@@ -116,6 +118,39 @@ export default function EditPollPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size must be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResetVotes = async () => {
+    if (!window.confirm("Are you sure you want to reset all votes? This action cannot be undone.")) return;
+    
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/votings/${id}/reset`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset votes');
+      setSuccess(true);
+    } catch (err) {
+      setError(err.message);
+      setIsSubmitting(false);
+    }
+  };
+
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/votings/${id}`;
@@ -178,6 +213,37 @@ export default function EditPollPage() {
           </div>
         </div>
 
+        {/* Image Upload */}
+        <div className="space-y-1.5">
+          <label className="block font-semibold text-slate-900">Cover Image</label>
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-6 transition-colors hover:border-slate-300">
+            {imagePreview ? (
+              <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-md">
+                <img src={imagePreview.startsWith('data:') ? imagePreview : `${API}${imagePreview}`} alt="Preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview('');
+                  }}
+                  className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur text-slate-700 hover:text-red-600 rounded-full shadow-lg transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full cursor-pointer py-8">
+                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-4">
+                  <ImageIcon className="h-8 w-8" />
+                </div>
+                <span className="text-slate-600 font-medium mb-1">Click to upload image</span>
+                <span className="text-sm text-slate-400">PNG, JPG up to 5MB</span>
+                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+              </label>
+            )}
+          </div>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ${isMultipleChoice ? 'bg-brand' : 'bg-slate-200'}`}
@@ -236,16 +302,27 @@ export default function EditPollPage() {
         </div>
 
 
-        <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-end items-center gap-4">
-          <Link to={`/votings/${id}`} className="text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mr-4">Cancel</Link>
-          <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto min-w-[180px]">
-            {isSubmitting ? 'Updating...' : (
-              <span className="flex items-center gap-2">
-                <Save className="h-5 w-5" />
-                Save Changes
-              </span>
-            )}
-          </Button>
+        <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <button
+            type="button"
+            onClick={handleResetVotes}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl font-bold transition-all text-sm border border-red-100"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Reset All Votes
+          </button>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <Link to={`/votings/${id}`} className="text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors">Cancel</Link>
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto min-w-[180px]">
+              {isSubmitting ? 'Updating...' : (
+                <span className="flex items-center gap-2">
+                  <Save className="h-5 w-5" />
+                  Save Changes
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -268,7 +345,7 @@ export default function EditPollPage() {
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleCopyLink}
-                className="w-fit mx-auto flex items-center justify-center gap-2 p-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold transition-all text-sm mb-2"
+                className="self-center flex items-center justify-center gap-2 p-4 px-8 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold transition-all text-sm mb-2"
               >
                 {copied ? <Check className="h-5 w-5 text-green-600" /> : <Copy className="h-5 w-5" />}
                 {copied ? 'Link Copied!' : 'Share Poll Link'}

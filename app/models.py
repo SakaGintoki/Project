@@ -43,7 +43,7 @@ class Voting(db.Model):
             'title': self.title,
             'description': self.description,
             'category': self.category,
-            'image_url': self.image_url,
+            'image_url': self.image_url if self.image_url else "https://www.shutterstock.com/image-vector/vector-illustration-group-people-voting-600nw-2629481927.jpg",
             'is_multiple_choice': self.is_multiple_choice,
             'is_anonymous': self.is_anonymous,
             'visibility': self.visibility,

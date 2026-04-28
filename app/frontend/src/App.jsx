@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -11,6 +11,25 @@ import ResultsPage from './pages/ResultsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import './index.css';
+
+// ProtectedRoute component
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-brand rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
 
 function App() {
   return (
@@ -29,11 +48,13 @@ function App() {
                 <main className="flex-1 w-full">
                   <Routes>
                     <Route path="/" element={<HomePage />} />
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/create" element={<CreatePollPage />} />
-                    <Route path="/edit/:id" element={<EditPollPage />} />
-                    <Route path="/votings/:id" element={<VotingDetailPage />} />
-                    <Route path="/results/:id" element={<ResultsPage />} />
+                    
+                    {/* Protected Routes */}
+                    <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                    <Route path="/create" element={<ProtectedRoute><CreatePollPage /></ProtectedRoute>} />
+                    <Route path="/edit/:id" element={<ProtectedRoute><EditPollPage /></ProtectedRoute>} />
+                    <Route path="/votings/:id" element={<ProtectedRoute><VotingDetailPage /></ProtectedRoute>} />
+                    <Route path="/results/:id" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
                   </Routes>
                 </main>
                 <Footer />

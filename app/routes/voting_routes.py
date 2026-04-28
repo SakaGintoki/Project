@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app, url_for
 from werkzeug.utils import secure_filename
 from database import db
@@ -103,7 +103,14 @@ def voting_detail(voting_id):
     data = voting.to_dict()
     # Attach ownership flag if user is authenticated
     user = get_current_user_optional()
-    data['is_owner'] = (user is not None and voting.user_id == user.id)
+    is_owner = (user is not None and voting.user_id == user.id)
+    data['is_owner'] = is_owner
+    
+    # Secure API: Hide individual vote counts for anonymous polls if not owner
+    if data['is_anonymous'] and not is_owner:
+        for option in data['options']:
+            option['vote_count'] = 0
+
     return jsonify(data)
 
 @voting_bp.route('/votings', methods=['POST'])
@@ -184,41 +191,79 @@ def update_voting(voting_id):
     if voting.user_id != request.current_user.id:
         return jsonify({'error': 'You do not have permission to edit this poll.'}), 403
 
-    data = request.get_json() or {}
+    title = request.form.get('title')
+    description = request.form.get('description', '')
+    category = request.form.get('category')
+    is_multiple_choice = request.form.get('is_multiple_choice') == 'true'
+    is_anonymous = request.form.get('is_anonymous') == 'true'
+    visibility = request.form.get('visibility', 'public')
+    end_date_str = request.form.get('end_date')
+    options_json = request.form.get('options')
+    
+    if title:
+        voting.title = title
+    voting.description = description
+    if category:
+        voting.category = category
+    voting.is_multiple_choice = is_multiple_choice
+    voting.is_anonymous = is_anonymous
+    voting.visibility = visibility
 
-    if 'title' in data:
-        voting.title = data['title']
-    if 'description' in data:
-        voting.description = data['description']
-    if 'category' in data:
-        voting.category = data['category']
-    if 'is_multiple_choice' in data:
-        voting.is_multiple_choice = bool(data['is_multiple_choice'])
-    if 'is_anonymous' in data:
-        voting.is_anonymous = bool(data['is_anonymous'])
-    if 'visibility' in data:
-        voting.visibility = data['visibility']
-    if 'end_date' in data:
-        if data['end_date']:
-            try:
-                voting.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
-            except ValueError:
-                pass
-        else:
-            voting.end_date = None
+    if end_date_str:
+        try:
+            voting.end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+    else:
+        voting.end_date = None
+
+    # Handle optional image upload during update
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+            filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            voting.image_url = f"/uploads/{filename}"
 
     # Update options if provided
-    if 'options' in data:
-        new_options = data['options']
-        # Remove old options
-        Option.query.filter_by(voting_id=voting.id).delete()
-        for text in new_options:
-            if text.strip():
-                option = Option(voting_id=voting.id, text=text.strip())
-                db.session.add(option)
+    if options_json:
+        try:
+            new_options = json.loads(options_json)
+            # Remove old options and votes to maintain referential integrity
+            Vote.query.filter_by(voting_id=voting.id).delete()
+            Option.query.filter_by(voting_id=voting.id).delete()
+            for text in new_options:
+                if text.strip():
+                    option = Option(voting_id=voting.id, text=text.strip())
+                    db.session.add(option)
+        except json.JSONDecodeError:
+            pass
 
     db.session.commit()
     return jsonify(voting.to_dict()), 200
+
+
+@voting_bp.route('/votings/<voting_id>/reset', methods=['POST'])
+@login_required
+def reset_voting(voting_id):
+    voting = Voting.query.get_or_404(voting_id)
+
+    # Only owner can reset
+    if voting.user_id != request.current_user.id:
+        return jsonify({'error': 'You do not have permission to reset this poll.'}), 403
+
+    # Delete all votes associated with this poll
+    Vote.query.filter_by(voting_id=voting.id).delete()
+    
+    # Reset vote count on all options
+    for option in voting.options:
+        option.vote_count = 0
+        
+    db.session.commit()
+    return jsonify({'message': 'All votes have been reset.'}), 200
+
 
 
 @voting_bp.route('/votings/<voting_id>', methods=['DELETE'])
@@ -363,7 +408,7 @@ def delete_comment(comment_id):
 
 @voting_bp.route('/vote', methods=['POST'])
 def submit_vote():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     voting_id = data.get('voting_id')
     option_ids = data.get('options', [])
     ip_address = request.remote_addr
@@ -384,6 +429,10 @@ def submit_vote():
         return jsonify({'error': 'You have already voted on this poll.'}), 409
 
     voting = Voting.query.get_or_404(voting_id)
+
+    # Check if poll has ended
+    if voting.end_date and datetime.now(timezone.utc) > voting.end_date.replace(tzinfo=timezone.utc):
+        return jsonify({'error': 'This poll has already ended.'}), 400
 
     # Security: If not multiple choice, allow only one option
     if not voting.is_multiple_choice and len(option_ids) > 1:
