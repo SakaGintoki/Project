@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { ChevronLeft, Trophy, RefreshCw, Users, Share2, Trash2, Clock, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Trophy, RefreshCw, Users, Share2, Trash2, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -77,6 +77,21 @@ export default function ResultsPage() {
   const isTie = hasVotes && voting.options.length > 1 && voting.options[0].vote_count === voting.options[1].vote_count;
   const winnerId = (!isTie && hasVotes) ? voting.options[0].id : null;
 
+  if (voting.is_anonymous && !voting.is_owner) {
+    return (
+      <div className="max-w-4xl mx-auto py-28 px-6 text-center">
+        <div className="py-20 px-8 bg-white rounded-[2rem] border border-dashed border-slate-300 flex flex-col items-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mb-6" />
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-4">Access Denied</h2>
+          <p className="text-lg text-slate-500 font-medium mb-8 max-w-md">This is an anonymous poll. The live results are hidden from the public and can only be viewed by the poll creator.</p>
+          <Link to={`/votings/${id}`}>
+            <Button>Return to Poll</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto py-28 px-6">
       <div className="flex items-center justify-between mb-8">
@@ -107,35 +122,35 @@ export default function ResultsPage() {
                 <Badge variant="outline" className="text-[10px]">Live Results</Badge>
                 {voting.is_anonymous === false && <Badge variant="outline" className="text-blue-500 border-blue-200">Public Voters</Badge>}
               </div>
-              <div className="flex-grow text-right">
-                <div className="inline-flex items-center gap-1.5 text-slate-400 font-medium text-sm">
-                  <Users className="h-4 w-4" />
-                  <span>{voting.total_votes} votes cast</span>
-                </div>
-              </div>
             </div>
             <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 leading-tight">{voting.title}</h1>
             {voting.author && <p className="text-base font-semibold text-slate-500 mt-5 mb-1">Created by {voting.author}</p>}
           </div>
-          <div className="flex gap-3 shrink-0">
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }} 
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
-            >
-              {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
-              {copied ? 'Copied!' : 'Share'}
-            </button>
-            {voting.is_owner && (
-              <button onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all active:scale-95 shadow-sm">
-                <Trash2 className="h-4 w-4" />
-                Delete
+          <div className="flex flex-col items-end gap-3 shrink-0 w-full md:w-auto mt-4 md:mt-0 border-t border-slate-100 md:border-0 pt-4 md:pt-0">
+            <div className="inline-flex items-center gap-1.5 text-slate-400 font-medium text-sm">
+              <Users className="h-4 w-4" />
+              <span>{voting.total_votes} votes cast</span>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 w-full">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }} 
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
+                {copied ? 'Copied!' : 'Share'}
               </button>
-            )}
+              {voting.is_owner && (
+                <button onClick={() => setShowDeleteConfirm(true)}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all active:scale-95 shadow-sm">
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -25,7 +25,7 @@ def create_app(config_override=None):
     if config_override:
         app.config.update(config_override)
 
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:5000", "http://127.0.0.1:5173", "http://127.0.0.1:5000"]}})
 
     db.init_app(app)
 
@@ -54,7 +54,8 @@ def create_app(config_override=None):
         return send_from_directory(app.static_folder, 'index.html')
 
     with app.app_context():
-        db.create_all()
+        if not app.config.get('TESTING'):
+            db.create_all()
 
     @app.errorhandler(Exception)
     def handle_exception(e):
@@ -63,8 +64,9 @@ def create_app(config_override=None):
             return jsonify(error=str(e.description)), e.code
         # Non-HTTP exceptions
         import traceback
-        print(traceback.format_exc())
-        return jsonify(error=str(e), traceback=traceback.format_exc()), 500
+        import logging
+        logging.error(traceback.format_exc())
+        return jsonify(error="An internal server error occurred."), 500
 
     @app.after_request
     def set_secure_headers(response):

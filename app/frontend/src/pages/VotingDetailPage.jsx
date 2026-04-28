@@ -127,41 +127,41 @@ export default function VotingDetailPage() {
                 {voting.is_multiple_choice && <Badge variant="outline" className="text-[10px]">Multiple Choice</Badge>}
               </div>
 
-              <div className="flex-grow text-right">
-                <div className="inline-flex items-center gap-1.5 text-slate-400 font-medium text-sm">
-                  <Users className="h-4 w-4" />
-                  <span>{voting.total_votes || 0} votes cast</span>
-                </div>
-              </div>
             </div>
             <h1 className="text-2xl md:text-4xl font-bold text-slate-900 tracking-tight leading-tight">{voting.title}</h1>
             {voting.author && <p className="text-base font-semibold text-slate-500 mt-5 mb-1">Created by {voting.author}</p>}
           </div>
-          <div className="flex gap-3 shrink-0">
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }} 
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
-            >
-              {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
-              {copied ? 'Copied!' : 'Share'}
-            </button>
-            {voting.is_owner && (
-              <>
-                <Link to={`/edit/${voting.id}`} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all active:scale-95 shadow-sm">
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Link>
-                <button onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all active:scale-95 shadow-sm">
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </button>
-              </>
-            )}
+          <div className="flex flex-col items-end gap-3 shrink-0 w-full md:w-auto mt-4 md:mt-0 border-t border-slate-100 md:border-0 pt-4 md:pt-0">
+            <div className="inline-flex items-center gap-1.5 text-slate-400 font-medium text-sm">
+              <Users className="h-4 w-4" />
+              <span>{voting.total_votes || 0} votes cast</span>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 w-full">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }} 
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
+                {copied ? 'Copied!' : 'Share'}
+              </button>
+              {voting.is_owner && (
+                <>
+                  <Link to={`/edit/${voting.id}`} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all active:scale-95 shadow-sm">
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Link>
+                  <button onClick={() => setShowDeleteConfirm(true)}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all active:scale-95 shadow-sm">
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -216,9 +216,11 @@ export default function VotingDetailPage() {
           </div>
 
           <div className="mt-12 pt-8 border-t border-slate-100 flex flex-col sm:flex-row justify-end items-center gap-6">
-            <Link to={`/results/${voting.id}`} className="text-sm font-semibold text-slate-400 hover:text-brand transition-colors order-2 sm:order-1">
-              View Live Results
-            </Link>
+            {(!voting.is_anonymous || voting.is_owner) && (
+              <Link to={`/results/${voting.id}`} className="text-sm font-semibold text-slate-400 hover:text-brand transition-colors order-2 sm:order-1">
+                View Live Results
+              </Link>
+            )}
             <Button type="submit" disabled={isEnded} className="w-full sm:w-auto min-w-[200px] order-1 sm:order-2">
               {isEnded ? 'Voting Closed' : 'Cast Your Vote'}
             </Button>
