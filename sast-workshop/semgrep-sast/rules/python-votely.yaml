@@ -1,0 +1,60 @@
+rules:
+  - id: votely-default-secret-key
+    message: "Default SECRET_KEY ditemukan. Gunakan secret dari environment/secret manager tanpa fallback yang lemah."
+    severity: ERROR
+    languages: [python]
+    metadata:
+      cwe: "CWE-798"
+      category: secrets
+      technology: [flask]
+    patterns:
+      - pattern: app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', $DEFAULT)
+      - metavariable-regex:
+          metavariable: $DEFAULT
+          regex: ".*(dev-secret-key|change-this|secret).*"
+
+  - id: votely-flask-debug-enabled
+    message: "Flask dijalankan dengan debug=True. Jangan aktifkan debug pada deployment production."
+    severity: WARNING
+    languages: [python]
+    metadata:
+      cwe: "CWE-489"
+      category: security-misconfiguration
+      technology: [flask]
+    pattern: $APP.run(..., debug=True, ...)
+
+  - id: votely-bare-except
+    message: "Bare except dapat menyembunyikan error keamanan. Tangani exception yang spesifik."
+    severity: WARNING
+    languages: [python]
+    metadata:
+      cwe: "CWE-703"
+      category: error-handling
+    pattern: |
+      try:
+        ...
+      except:
+        ...
+
+  - id: votely-broad-except-exception
+    message: "except Exception dapat menyembunyikan validation/auth error dan menyulitkan audit."
+    severity: INFO
+    languages: [python]
+    metadata:
+      cwe: "CWE-703"
+      category: error-handling
+    pattern: |
+      try:
+        ...
+      except Exception:
+        ...
+
+  - id: votely-file-save-review
+    message: "Review file upload. Pastikan validasi MIME, ekstensi, ukuran, nama file, dan scanning antivirus bila diperlukan."
+    severity: INFO
+    languages: [python]
+    metadata:
+      cwe: "CWE-434"
+      category: file-upload
+      technology: [flask]
+    pattern: $FILE.save($PATH)

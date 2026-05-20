@@ -1,0 +1,17 @@
+sast-workshop/qwen-sast/.env
+
+# Python virtual environments
+venv/
+.venv/
+.venv-sast/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local scan outputs
+sast-workshop/results/*.json
+sast-workshop/results/*.html
+
+# Node cache
+node_cache/

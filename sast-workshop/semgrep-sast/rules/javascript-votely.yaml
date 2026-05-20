@@ -1,0 +1,42 @@
+rules:
+  - id: votely-react-localstorage-token
+    message: "Token disimpan di localStorage. Review risiko XSS dan pertimbangkan HttpOnly cookie bila threat model mengharuskan."
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata:
+      cwe: "CWE-922"
+      category: token-storage
+      technology: [react]
+    pattern-either:
+      - pattern: localStorage.setItem($KEY, $VALUE)
+      - pattern: localStorage.getItem($KEY)
+
+  - id: votely-dangerously-set-inner-html
+    message: "dangerouslySetInnerHTML ditemukan. Pastikan sanitasi HTML sebelum render."
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      cwe: "CWE-79"
+      category: xss
+      technology: [react]
+    pattern: dangerouslySetInnerHTML={{__html: $HTML}}
+
+  - id: votely-innerhtml-assignment
+    message: "Assignment ke innerHTML berpotensi menyebabkan XSS."
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      cwe: "CWE-79"
+      category: xss
+    pattern: $EL.innerHTML = $VALUE
+
+  - id: votely-window-location-assignment
+    message: "Review assignment ke window.location untuk mencegah open redirect."
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      cwe: "CWE-601"
+      category: open-redirect
+    pattern-either:
+      - pattern: window.location = $URL
+      - pattern: window.location.href = $URL
